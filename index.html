@@ -1,31 +1,288 @@
 <!DOCTYPE html>
 <html lang="no">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
   <title>achievify</title>
-  <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f4f6ff;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 0 16px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      margin-bottom: 24px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 32px;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #6b7280;
+      margin-bottom: 24px;
+    }
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      border-radius: 12px;
+      border: 1px solid #d1d5db;
+      padding: 12px;
+      font-size: 15px;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 12px 20px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: #2563eb;
+      color: white;
+      width: 100%;
+      margin-top: 16px;
+    }
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #111827;
+      margin-right: 8px;
+    }
+    .feed-item {
+      background: #fff;
+      border-radius: 16px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+    }
+    .feed-text {
+      font-size: 15px;
+      margin-bottom: 4px;
+    }
+    .feed-meta {
+      font-size: 12px;
+      color: #6b7280;
+    }
+    .auth-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .auth-row input {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      font-size: 14px;
+      min-width: 0;
+    }
+    .user-info {
+      font-size: 14px;
+      color: #4b5563;
+      margin-bottom: 8px;
+    }
+    .error {
+      color: #b91c1c;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .success {
+      color: #047857;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+  </style>
 </head>
 <body>
-
-  <header class="topbar">
+  <div class="container">
     <h1>achievify</h1>
-    <p class="subtitle">Del din daily achievement 💫</p>
-  </header>
+    <p class="subtitle">Del din daily achievement 👋</p>
 
-  <main class="container">
+    <!-- Auth-kort -->
+    <div class="card">
+      <div id="auth-status" class="user-info">Ikke innlogget</div>
 
-    <section class="create-box">
+      <div class="auth-row">
+        <input type="email" id="email" placeholder="E-post" />
+        <input type="password" id="password" placeholder="Passord" />
+      </div>
+
+      <div>
+        <button id="signup-btn" class="btn-secondary">Lag bruker</button>
+        <button id="login-btn" class="btn-secondary">Logg inn</button>
+        <button id="logout-btn" class="btn-secondary" style="display:none;">Logg ut</button>
+      </div>
+
+      <div id="auth-message"></div>
+    </div>
+
+    <!-- Post achievement -->
+    <div class="card">
       <h2>Hva klarte du i dag?</h2>
-      <textarea id="achievement-input" placeholder="Eksempel: Jeg sto opp tidlig og gikk en tur, gjorde ferdig lekser, trente, spiste sunt ..."></textarea>
-      <button id="post-btn">Post achievement</button>
-    </section>
+      <p style="color:#6b7280;font-size:14px;">
+        Eksempel: Jeg sto opp tidlig og gikk en tur, gjorde ferdig lekser, trente, spiste sunt ...
+      </p>
+      <textarea id="achievement-input"></textarea>
+      <button id="post-btn" class="btn-primary">Post achievement</button>
+      <div id="post-message"></div>
+    </div>
 
-    <h2 class="feed-title">Feed</h2>
-    <ul id="feed" class="feed"></ul>
+    <!-- Feed -->
+    <div>
+      <h2>Feed</h2>
+      <div id="feed"></div>
+    </div>
+  </div>
 
-  </main>
+  <!-- Supabase JS via CDN -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script>
+    // TODO: BYTT UT DISSE MED DINE VERDIER FRA SUPABASE
+    const SUPABASE_URL = "https://DIN-PROJECT-URL.supabase.co";
+    const SUPABASE_ANON_KEY = "DIN_ANON_PUBLIC_KEY";
 
-  <script src="script.js"></script>
+    const { createClient } = supabase;
+    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const authStatusEl = document.getElementById("auth-status");
+    const authMessageEl = document.getElementById("auth-message");
+    const postMessageEl = document.getElementById("post-message");
+    const feedEl = document.getElementById("feed");
+    const postBtn = document.getElementById("post-btn");
+    const logoutBtn = document.getElementById("logout-btn");
+
+    let currentUser = null;
+
+    function setAuthMessage(text, ok = true) {
+      authMessageEl.textContent = text || "";
+      authMessageEl.className = ok ? "success" : "error";
+    }
+
+    function setPostMessage(text, ok = true) {
+      postMessageEl.textContent = text || "";
+      postMessageEl.className = ok ? "success" : "error";
+    }
+
+    // === AUTH ===
+    document.getElementById("signup-btn").addEventListener("click", async () => {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value.trim();
+      if (!email || !password) return setAuthMessage("Skriv inn e-post og passord", false);
+
+      const { data, error } = await client.auth.signUp({ email, password });
+      if (error) return setAuthMessage(error.message, false);
+
+      setAuthMessage("Bruker opprettet! Sjekk e-post hvis verifisering er påkrevd.");
+    });
+
+    document.getElementById("login-btn").addEventListener("click", async () => {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value.trim();
+      if (!email || !password) return setAuthMessage("Skriv inn e-post og passord", false);
+
+      const { data, error } = await client.auth.signInWithPassword({ email, password });
+      if (error) return setAuthMessage(error.message, false);
+
+      currentUser = data.user;
+      updateAuthUI();
+      setAuthMessage("Logget inn ✅");
+    });
+
+    logoutBtn.addEventListener("click", async () => {
+      await client.auth.signOut();
+      currentUser = null;
+      updateAuthUI();
+      setAuthMessage("Logget ut");
+    });
+
+    function updateAuthUI() {
+      if (currentUser) {
+        authStatusEl.textContent = `Innlogget som ${currentUser.email}`;
+        logoutBtn.style.display = "inline-block";
+      } else {
+        authStatusEl.textContent = "Ikke innlogget";
+        logoutBtn.style.display = "none";
+      }
+    }
+
+    // Sjekk om bruker er logget inn når siden laster
+    (async () => {
+      const { data } = await client.auth.getUser();
+      currentUser = data.user;
+      updateAuthUI();
+    })();
+
+    // === POST ACHIEVEMENT ===
+    postBtn.addEventListener("click", async () => {
+      if (!currentUser) return setPostMessage("Du må være logget inn for å poste.", false);
+
+      const text = document.getElementById("achievement-input").value.trim();
+      if (!text) return setPostMessage("Skriv inn noe først", false);
+
+      const { error } = await client
+        .from("achievements")
+        .insert({ text, user_email: currentUser.email });
+
+      if (error) return setPostMessage(error.message, false);
+
+      document.getElementById("achievement-input").value = "";
+      setPostMessage("Postet! ✅");
+      await loadFeed();
+    });
+
+    // === LOAD FEED (ALLE SIN DATA) ===
+    async function loadFeed() {
+      const { data, error } = await client
+        .from("achievements")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      feedEl.innerHTML = "";
+      data.forEach((row) => {
+        const div = document.createElement("div");
+        div.className = "feed-item";
+
+        const textEl = document.createElement("div");
+        textEl.className = "feed-text";
+        textEl.textContent = row.text;
+
+        const metaEl = document.createElement("div");
+        metaEl.className = "feed-meta";
+
+        const date = new Date(row.created_at);
+        metaEl.textContent = `${row.user_email || "Anon"} • ${date.toLocaleString("no-NO")}`;
+
+        div.appendChild(textEl);
+        div.appendChild(metaEl);
+
+        feedEl.appendChild(div);
+      });
+    }
+
+    // Last feed når siden åpner
+    loadFeed();
+  </script>
 </body>
 </html>
+
